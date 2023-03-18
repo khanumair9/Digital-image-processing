@@ -1,0 +1,112 @@
+function varargout = testing(varargin)
+gui_Singleton = 1;
+gui_State = struct('gui_Name',       mfilename, ...
+                   'gui_Singleton',  gui_Singleton, ...
+                   'gui_OpeningFcn', @testing_OpeningFcn, ...
+                   'gui_OutputFcn',  @testing_OutputFcn, ...
+                   'gui_LayoutFcn',  [] , ...
+                   'gui_Callback',   []);
+if nargin && ischar(varargin{1})
+    gui_State.gui_Callback = str2func(varargin{1});
+end
+ 
+if nargout
+    [varargout{1:nargout}] = gui_mainfcn(gui_State, varargin{:});
+else
+    gui_mainfcn(gui_State, varargin{:});
+end
+% End initialization code - DO NOT EDIT
+% --- Executes just before testing is made visible.
+function testing_OpeningFcn(hObject, eventdata, handles, varargin)
+handles.output = hObject;
+guidata(hObject, handles);
+% --- Outputs from this function are returned to the command line.
+function varargout = testing_OutputFcn(hObject, eventdata, handles) 
+varargout{1} = handles.output;
+% --- Executes on button press in pushbutton1.
+% --- Executes on button press in Load_Image.
+function Load_Image_Callback(hObject, eventdata, handles)
+global im im2
+[path, user_cancel] = imgetfile();
+if user_cancel
+    msgbox(sprintf('Invalid Selection'),'Error','Warn');
+    return
+end
+im = imread(path);
+axes(handles.axes1);
+imshow(im)
+title('\fontsize{18}\color[rgb]{0.635 0.078 0.184} Patient''s Brain')
+% --- Executes on button press in Output.
+function Output_Callback(hObject, eventdata, handles)
+global im
+axes(handles.axes2)
+iterations = 10; % number of iterations.
+    delta_t = 1/7; %max value of .25 for stability
+    kappa = 15; %conduction coefficient 20-100 ?
+    opt = 2; %Perona Malik diffusion equation No 2
+    disp('Preprocessing given input please wait . . .');
+    inp = anisodiff(im,iterations,delta_t,kappa,opt); %anisotropic diffusion
+    inp = uint8(inp); 
+inp=imresize(inp,[256,256]);
+if size(inp,3)>1
+    inp=rgb2gray(inp);
+end
+sout=imresize(inp,[256,256]);
+t0=mean(im(:));
+th=t0+((max(inp(:))+min(inp(:)))./2);
+for i=1:1:size(inp,1)
+    for j=1:1:size(inp,2)
+        if inp(i,j)>th
+            sout(i,j)=1;
+        else
+            sout(i,j)=0;
+        end
+    end
+end
+label=bwlabel(sout);
+stats=regionprops(logical(sout),'Solidity','Area','BoundingBox');
+density=[stats.Solidity];
+area=[stats.Area];
+high_dense_area=density>0.7;
+max_area=max(area(high_dense_area));
+tumor_label=find(area==max_area);
+tumor=ismember(label,tumor_label);
+if max_area>200
+     set(handles.edit3,'string',' Tumor!! Detected');
+else
+  set(handles.edit3,'string',' No Tumor!! Detected');
+    return;   
+end
+box = stats(tumor_label);
+wantedBox = box.BoundingBox;
+hold on;
+rectangle('Position',wantedBox,'EdgeColor','y');
+hold off;
+se=strel('square',5);
+tumor=imdilate(tumor,se);
+B=bwboundaries(tumor,'noholes');
+imshow(im)
+hold on
+for i=1:length(B)
+    plot(B{i}(:,2),B{i}(:,1), 'y' ,'linewidth',1.75);
+end
+title('\fontsize{18}\color[rgb]{0.635 0.078 0.184} Detected Tumor')
+hold off
+function edit1_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+function edit2_Callback(hObject, eventdata, handles)
+% --- Executes during object creation, after setting all properties.
+function edit2_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
+function Untitled_1_Callback(hObject, eventdata, handles)
+function author_Callback(hObject, eventdata, handles)
+msgbox(sprintf('Name:Muhammad Umair Khan\n Email:FA18-bce-010@cuiatk.edu.pk'),'Author')
+function edit3_Callback(hObject, eventdata, handles)
+function edit3_CreateFcn(hObject, eventdata, handles)
+if ispc && isequal(get(hObject,'BackgroundColor'), get(0,'defaultUicontrolBackgroundColor'))
+    set(hObject,'BackgroundColor','white');
+end
