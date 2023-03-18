@@ -1,0 +1,79 @@
+clc
+close all
+clear all
+%% Input
+global im im2
+[path, user_cancel] = imgetfile();
+if user_cancel
+    msgbox(sprintf('Invalid Selection'),'Error','Warn');
+    return
+end
+im = imread(path);
+axes(handles.axes1);
+imshow(im)
+title('\fontsize{18}\color[rgb]{0.635 0.078 0.184} Patient''s Brain')
+%% Filter
+num_iter = 10;
+    delta_t = 1/7;
+    kappa = 15;
+    option = 2;
+    disp('Preprocessing image please wait . . .');
+    inp = anisodiff(s,num_iter,delta_t,kappa,option);
+    inp = uint8(inp);
+inp=imresize(inp,[256,256]);
+if size(inp,3)>1
+    inp=rgb2gray(inp);
+end
+figure;
+imshow(inp);
+title('Filtered image','FontSize',20);
+%% thresholding
+sout=imresize(inp,[256,256]);
+t0=mean(s(:));
+th=t0+((max(inp(:))+min(inp(:)))./2);
+for i=1:1:size(inp,1)
+    for j=1:1:size(inp,2)
+        if inp(i,j)>th
+            sout(i,j)=1;
+        else
+            sout(i,j)=0;
+        end
+    end
+end
+%% Morphological Operation
+label=bwlabel(sout);
+stats=regionprops(logical(sout),'Solidity','Area','BoundingBox');
+density=[stats.Solidity];
+area=[stats.Area];
+high_dense_area=density>0.7;
+max_area=max(area(high_dense_area));
+tumor_label=find(area==max_area);
+tumor=ismember(label,tumor_label);
+if max_area>200
+   figure;
+   imshow(tumor)
+   title('tumor alone','FontSize',20);
+else
+    h = msgbox('No Tumor!!','status');
+    %disp('no tumor');
+    return;
+end          
+%% Bounding box
+box = stats(tumor_label);
+wantedBox = box.BoundingBox;
+figure
+imshow(inp);
+title('Bounding Box','FontSize',20);
+hold on;
+rectangle('Position',wantedBox,'EdgeColor','y');
+hold off;
+se=strel('square',5);
+tumor=imdilate(tumor,se);
+B=bwboundaries(tumor,'noholes');
+imshow(im)
+hold on
+for i=1:length(B)
+    plot(B{i}(:,2),B{i}(:,1), 'y' ,'linewidth',1.75);
+end
+title('\fontsize{18}\color[rgb]{0.635 0.078 0.184} Detected Tumor')
+hold off
